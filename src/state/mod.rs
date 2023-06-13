@@ -130,6 +130,20 @@ impl State {
                             }
                         }
                     }
+                    "new_contact" => {
+                        // new contact, send msg to this address
+                        if let UiInput::Text(text) = change {
+                            if let Some(recp) = Relation::peer_from_base_64(text){
+                                let text = String::from("Hello");
+
+                                let recps = vec![recp];
+                                let chat = DatasetData::String(text);
+                                let msg = RouterMessage::SendEvent("chat".into(), recps, chat);
+                                let msg = Message::Router(msg);
+                                self.client.send(msg).await;
+                            }
+                        }
+                    }
                     "back" => {
                         // switch back to contacts list
                         self.current_recp = None;

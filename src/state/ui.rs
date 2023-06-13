@@ -23,7 +23,18 @@ impl State{
         for i in (0..root.children().len()).rev(){
             root.delete_child(i);
         }
-        root.append_child(UiElement::from_string("Contacts:"));
+        root.append_child({
+            let mut row = UiElement::new(UiElementKind::Columns);
+            row.append_child(UiElement::from_string("Contacts:"));
+            row.append_child(UiElement::new(UiElementKind::Spacer));
+            row.append_child({
+                let mut new_input = UiElement::new(UiElementKind::TextEntry);
+                new_input.set_id("new_contact");
+                new_input.set_text("New Contact");
+                new_input
+            });
+            row
+        });
         
         root.append_child({
             // contact rows
