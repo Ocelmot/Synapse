@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
-use spider_client::{SpiderClient, message::{Message, DatasetMessage, UiMessage, DatasetPath, UiInput, UiPageManager, RouterMessage, DatasetData, DirectoryEntry}, Relation};
-
-
+use spider_client::{
+    message::{
+        DatasetData, DatasetMessage, DatasetPath, DirectoryEntry, Message, RouterMessage, UiInput,
+        UiMessage, UiPageManager,
+    },
+    ClientChannel, ClientResponse, Relation,
+};
 
 mod ui;
 
-
 pub struct State {
-    client: SpiderClient,
+    client: ClientChannel,
     page_mgr: UiPageManager,
 
     // maps relations to indices in the contacts dataset
@@ -20,10 +23,8 @@ pub struct State {
 }
 
 impl State {
-
-
-    pub async fn new(client: SpiderClient) -> Self{
-        let id = client.self_relation().id;
+    pub async fn new(client: ClientChannel) -> Self {
+        let id = client.id();
         let page_mgr = UiPageManager::new(id.clone(), "Synapse");
 
         let mut new = Self {
@@ -43,10 +44,15 @@ impl State {
     pub async fn run(&mut self) {
         loop {
             match self.client.recv().await {
-                Some(Message::Ui(msg)) => self.ui_handler(msg).await,
-                Some(Message::Dataset(msg)) => self.dataset_handler(msg).await,
-                Some(Message::Router(msg)) => self.router_handler(msg).await,
+                Some(ClientResponse::Message(Message::Ui(msg))) => self.ui_handler(msg).await,
+                Some(ClientResponse::Message(Message::Dataset(msg))) => {
+                    self.dataset_handler(msg).await
+                }
+                Some(ClientResponse::Message(Message::Router(msg))) => {
+                    self.router_handler(msg).await
+                }
                 None => break, //  done!
+                _ => {}
             }
         }
     }
@@ -66,7 +72,7 @@ impl State {
         let msg = RouterMessage::Subscribe("chat".into());
         let msg = Message::Router(msg);
         self.client.send(msg).await;
-        
+
         // contacts: {id: base_64 of relation, name: from directory}
         // let contacts_path = DatasetPath::new_private(vec!["contacts".into()]);
         // let msg = DatasetMessage::Subscribe { path: contacts_path };
@@ -83,13 +89,13 @@ impl State {
             if parts.get(0) != Some(&String::from("contacts")) {
                 return; // all messages are in contacts or sub-datasets
             }
-            match parts.get(1){
+            match parts.get(1) {
                 Some(id) => {
                     // this is a subdataset, process messages
                     let rel = Relation::from_base64(id.into()).unwrap();
 
                     // if path is too long, remove first element
-                    if data.len() > 20{
+                    if data.len() > 20 {
                         let msg = Message::Dataset(DatasetMessage::DeleteElement {
                             path: path.clone(),
                             id: 0,
@@ -97,8 +103,8 @@ impl State {
                         self.client.send(msg).await;
                     }
                     self.messages.insert(rel, data);
-                },
-                None => {},
+                }
+                None => {}
             }
         }
     }
@@ -122,7 +128,7 @@ impl State {
                         println!("pressed contact");
                         let index = dataset_ids.get(0).expect("always should be in a dataset");
                         for (rel, idx) in &self.contacts {
-                            if index == idx{
+                            if index == idx {
                                 // found index, set page to this
                                 self.show_msgs(rel.clone()).await;
 
@@ -133,7 +139,7 @@ impl State {
                     "new_contact" => {
                         // new contact, send msg to this address
                         if let UiInput::Text(text) = change {
-                            if let Some(recp) = Relation::peer_from_base_64(text){
+                            if let Some(recp) = Relation::peer_from_base_64(text) {
                                 let text = String::from("Hello");
 
                                 let recps = vec![recp];
@@ -151,14 +157,15 @@ impl State {
                     }
                     "message" => {
                         // send message to selected recp
-                        if let UiInput::Text(text) = change{
-                            if let Some(rel) = &self.current_recp{
+                        if let UiInput::Text(text) = change {
+                            if let Some(rel) = &self.current_recp {
                                 // append to dataset (to render)
-                                let chat_path = DatasetPath::new_private(vec!["contacts".into(), rel.sha256()]);
+                                let chat_path =
+                                    DatasetPath::new_private(vec!["contacts".into(), rel.sha256()]);
                                 let chat = DatasetData::Map({
                                     HashMap::from([
                                         ("self".into(), DatasetData::String(text.clone())),
-                                        ("other".into(), DatasetData::String("".into()))
+                                        ("other".into(), DatasetData::String("".into())),
                                     ])
                                 });
                                 let msg = Message::Dataset(DatasetMessage::Append {
@@ -175,7 +182,7 @@ impl State {
                                 self.client.send(msg).await;
                             }
                         }
-                    },
+                    }
                     _ => return,
                 }
             }
@@ -183,12 +190,16 @@ impl State {
         }
     }
 
-    async fn router_handler(&mut self, msg: RouterMessage){
+    async fn router_handler(&mut self, msg: RouterMessage) {
         match msg {
-            RouterMessage::SendEvent(_, _, _) => {},
+            RouterMessage::Pending => {}
+            RouterMessage::ApprovalCode(_) => {}
+            RouterMessage::Approved => {}
+            RouterMessage::Denied => {}
+            RouterMessage::SendEvent(_, _, _) => {}
             RouterMessage::Event(msg_type, from, data) => {
                 // a new chat message has arrived
-                if msg_type != "chat"{
+                if msg_type != "chat" {
                     return;
                 }
 
@@ -199,7 +210,7 @@ impl State {
                         DatasetData::Map({
                             HashMap::from([
                                 ("self".into(), DatasetData::String("".into())),
-                                ("other".into(), DatasetData::String(s.clone()))
+                                ("other".into(), DatasetData::String(s.clone())),
                             ])
                         })
                     } else {
@@ -209,11 +220,11 @@ impl State {
                     let msg = Message::Dataset(msg);
                     self.client.send(msg).await;
                 }
-            },
-            RouterMessage::Subscribe(_) => {},
-            RouterMessage::Unsubscribe(_) => {},
-            RouterMessage::SubscribeDir => {},
-            RouterMessage::UnsubscribeDir => {},
+            }
+            RouterMessage::Subscribe(_) => {}
+            RouterMessage::Unsubscribe(_) => {}
+            RouterMessage::SubscribeDir => {}
+            RouterMessage::UnsubscribeDir => {}
             RouterMessage::AddIdentity(entry) => {
                 // a directory entry has changed, update the dataset
                 let rel = entry.relation().clone();
@@ -225,24 +236,33 @@ impl State {
                 let index = self.contacts.entry(rel.clone()).or_insert(next_index);
 
                 // set dataset item to this
-                let name = entry.get("nickname")
+                let name = entry
+                    .get("nickname")
                     .or(entry.get("name"))
-                    .unwrap_or(&String::from("NoName")).clone();
+                    .unwrap_or(&String::from("NoName"))
+                    .clone();
 
                 let contact_path = DatasetPath::new_private(vec!["contacts".into()]);
                 let new_data = DatasetData::Map({
                     HashMap::from([
                         ("id".into(), DatasetData::String(rel.to_base64())),
-                        ("name".into(), DatasetData::String(name))
+                        ("name".into(), DatasetData::String(name)),
                     ])
                 });
-                let msg = DatasetMessage::SetElement { path: contact_path, data: new_data, id: *index };
+                let msg = DatasetMessage::SetElement {
+                    path: contact_path,
+                    data: new_data,
+                    id: *index,
+                };
                 let msg = Message::Dataset(msg);
 
                 self.client.send(msg).await;
-            },
-            RouterMessage::RemoveIdentity(_) => {},
-            RouterMessage::SetIdentityProperty(_, _) => {},
+            }
+            RouterMessage::RemoveIdentity(_) => {}
+            RouterMessage::SetIdentityProperty(_, _) => {}
+            RouterMessage::SubscribeChord(_) => {}
+            RouterMessage::UnsubscribeChord => {}
+            RouterMessage::ChordAddrs(_) => {}
         }
     }
 }
