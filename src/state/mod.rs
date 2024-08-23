@@ -263,6 +263,9 @@ impl State {
             RouterMessage::SubscribeChord(_) => {}
             RouterMessage::UnsubscribeChord => {}
             RouterMessage::ChordAddrs(_) => {}
+            RouterMessage::VeilidEnabled(_) => {},
+            RouterMessage::Invite(_) => {},
+            RouterMessage::GenerateInvite(_) => {},
         }
     }
 }
