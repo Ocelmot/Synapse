@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
 use spider_client::{
-    message::{
-        DatasetData, DatasetMessage, DatasetPath, DirectoryEntry, Message, RouterMessage, UiInput,
-        UiMessage, UiPageManager,
-    },
-    ClientChannel, ClientResponse, Relation,
+    ClientChannel, ClientResponse, link::{Relation, message::{
+        DatasetData, DatasetMessage, DatasetPath, DirectoryEntry, Invite, Message, RouterMessage, UiInput, UiMessage, UiPageManager
+    }}
 };
 
 mod ui;
@@ -44,14 +42,14 @@ impl State {
     pub async fn run(&mut self) {
         loop {
             match self.client.recv().await {
-                Some(ClientResponse::Message(Message::Ui(msg))) => self.ui_handler(msg).await,
-                Some(ClientResponse::Message(Message::Dataset(msg))) => {
+                Ok(ClientResponse::Message(Message::Ui(msg), _)) => self.ui_handler(msg).await,
+                Ok(ClientResponse::Message(Message::Dataset(msg), _)) => {
                     self.dataset_handler(msg).await
                 }
-                Some(ClientResponse::Message(Message::Router(msg))) => {
+                Ok(ClientResponse::Message(Message::Router(msg), _)) => {
                     self.router_handler(msg).await
                 }
-                None => break, //  done!
+                Err(_) => break, //  done!
                 _ => {}
             }
         }
@@ -139,14 +137,12 @@ impl State {
                     "new_contact" => {
                         // new contact, send msg to this address
                         if let UiInput::Text(text) = change {
-                            if let Some(recp) = Relation::peer_from_base_64(text) {
-                                let text = String::from("Hello");
-
-                                let recps = vec![recp];
-                                let chat = DatasetData::String(text);
-                                let msg = RouterMessage::SendEvent("chat".into(), recps, chat);
+                            if let Some(invite) = Invite::from_base64(text) {
+                                let msg = RouterMessage::Invite(invite);
                                 let msg = Message::Router(msg);
-                                self.client.send(msg).await;
+                                let _ = self.client.send(msg).await;
+                            }else{
+                                eprintln!("Failed to parse invite");
                             }
                         }
                     }
@@ -196,6 +192,7 @@ impl State {
             RouterMessage::ApprovalCode(_) => {}
             RouterMessage::Approved => {}
             RouterMessage::Denied => {}
+            RouterMessage::Addrs(_) => {},
             RouterMessage::SendEvent(_, _, _) => {}
             RouterMessage::Event(msg_type, from, data) => {
                 // a new chat message has arrived
@@ -260,12 +257,8 @@ impl State {
             }
             RouterMessage::RemoveIdentity(_) => {}
             RouterMessage::SetIdentityProperty(_, _) => {}
-            RouterMessage::SubscribeChord(_) => {}
-            RouterMessage::UnsubscribeChord => {}
-            RouterMessage::ChordAddrs(_) => {}
-            RouterMessage::VeilidEnabled(_) => {},
             RouterMessage::Invite(_) => {},
-            RouterMessage::GenerateInvite(_) => {},
+            RouterMessage::GenerateInvite => {},
         }
     }
 }

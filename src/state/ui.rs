@@ -1,9 +1,6 @@
-use spider_client::{
-    message::{
+use spider_client::link::{Relation, message::{
         DatasetPath, Message, UiElement, UiElementContent, UiElementKind, UiMessage, UiPath,
-    },
-    Relation,
-};
+    }};
 
 use crate::state::State;
 
@@ -30,7 +27,7 @@ impl State {
             row.append_child({
                 let mut new_input = UiElement::new(UiElementKind::TextEntry);
                 new_input.set_id("new_contact");
-                new_input.set_text("New Contact");
+                new_input.set_text("Accept Invite");
                 new_input
             });
             row
