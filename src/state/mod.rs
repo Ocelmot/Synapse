@@ -1,9 +1,14 @@
 use std::collections::HashMap;
 
 use spider_client::{
-    ClientChannel, ClientResponse, link::{Relation, message::{
-        DatasetData, DatasetMessage, DatasetPath, DirectoryEntry, Invite, Message, RouterMessage, UiInput, UiMessage, UiPageManager
-    }}
+    link::{
+        message::{
+            DatasetData, DatasetMessage, DatasetPath, DirectoryEntry, Invite, Message,
+            RouterMessage, UiInput, UiMessage, UiPageManager,
+        },
+        Relation,
+    },
+    ClientChannel, ClientResponse,
 };
 
 mod ui;
@@ -90,7 +95,7 @@ impl State {
             match parts.get(1) {
                 Some(id) => {
                     // this is a subdataset, process messages
-                    let rel = Relation::from_base64(id.into()).unwrap();
+                    let rel = Relation::from_base64(id).unwrap();
 
                     // if path is too long, remove first element
                     if data.len() > 20 {
@@ -141,7 +146,7 @@ impl State {
                                 let msg = RouterMessage::Invite(invite);
                                 let msg = Message::Router(msg);
                                 let _ = self.client.send(msg).await;
-                            }else{
+                            } else {
                                 eprintln!("Failed to parse invite");
                             }
                         }
@@ -192,7 +197,7 @@ impl State {
             RouterMessage::ApprovalCode(_) => {}
             RouterMessage::Approved => {}
             RouterMessage::Denied => {}
-            RouterMessage::Addrs(_) => {},
+            RouterMessage::Addrs(_) => {}
             RouterMessage::SendEvent(_, _, _) => {}
             RouterMessage::Event(msg_type, from, data) => {
                 // a new chat message has arrived
@@ -255,10 +260,16 @@ impl State {
 
                 self.client.send(msg).await;
             }
-            RouterMessage::RemoveIdentity(_) => {}
+            RouterMessage::RemoveIdentity(_rel) => {
+                // self.directory.remove(rel);
+
+                // This is tricky to do since it needs to update all the next
+                // indices
+
+            }
             RouterMessage::SetIdentityProperty(_, _) => {}
-            RouterMessage::Invite(_) => {},
-            RouterMessage::GenerateInvite => {},
+            RouterMessage::Invite(_) => {}
+            RouterMessage::GenerateInvite => {}
         }
     }
 }
