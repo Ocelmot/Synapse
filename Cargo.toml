@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full", "tracing"] }
-spider_client = { git = "https://github.com/Ocelmot/spider" }
+spider_client = { git = "https://github.com/Ocelmot/spider", rev = "bfbcbdc29b543f0a4a127168374814afe8cc386e"}
 serde_json = "1.0.73"
